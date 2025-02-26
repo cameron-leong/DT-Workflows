@@ -1,0 +1,43 @@
+{
+  "id": "b227f12f-dd5d-4561-be00-6af9edc520b0",
+  "title": "Tag processes with Availability Monitoring enabled",
+  "tasks": {
+    "tag_processes": {
+      "name": "tag_processes",
+      "action": "dynatrace.automations:run-javascript",
+      "description": "Build a custom task running js Code",
+      "input": {
+        "script": "/*\nThis action gets a list of process groups which have availability monitoring enabled\nand tags each PGI with AvailabilityMonitoring:enabled\n*/\n\n\n// optional import of sdk modules\nimport { execution } from '@dynatrace-sdk/automation-utils';\nimport { monitoredEntitiesClient } from \"@dynatrace-sdk/client-classic-environment-v2\";\nimport { settingsObjectsClient } from \"@dynatrace-sdk/client-classic-environment-v2\";\nimport { monitoredEntitiesCustomTagsClient } from \"@dynatrace-sdk/client-classic-environment-v2\";\n\nasync function get_process_group_ids(){\n  const data = await settingsObjectsClient.getSettingsObjects({\n    schemaIds: \"builtin:availability.process-group-alerting\",\n    fields: \"scope,value\",\n    filter: \"value.enabled=true\",\n    pageSize: 500\n  });\n  let settingsObjects = data['items']\n  let process_group_ids = []\n  for(let i=0; i<settingsObjects.length; i++){\n    process_group_ids.push(settingsObjects[i]['scope'])\n  }\n  return process_group_ids\n}\n\nasync function tag_process_group_instances(pg_ids){\n  for(let i=0; i<pg_ids.length; i++){\n    //tag the process group\n    let pg_data = await monitoredEntitiesCustomTagsClient.postTags({\n      entitySelector: `entityId(${pg_ids[i]})`,\n      body: {\n         \"tags\": [{\n          \"key\": \"AvailabilityMonitoring\",\n          \"value\": \"enabled\"\n        }]\n      }\n    });\n    //tag each process within the process group\n    let pgi_data = await monitoredEntitiesCustomTagsClient.postTags({\n      entitySelector: `type(PROCESS_GROUP_INSTANCE),fromRelationships.isInstanceOf(entityId(${pg_ids[i]}))`,\n      body: {\n         \"tags\": [{\n          \"key\": \"AvailabilityMonitoring\",\n          \"value\": \"enabled\"\n        }]\n      }\n    });\n  }\n}\n\nasync function print_process_group_names(pg_ids){\n  for(let i=0; i<pg_ids.length; i++){\n    let temp = await monitoredEntitiesClient.getEntity({\n      entityId: pg_ids[i],\n    });\n    console.log(temp['displayName'])\n  }\n  \n}\nexport default async function ({ execution_id }) {\n//get list of enabled PG availability settings objects\n  let process_group_ids = await get_process_group_ids()\n//tag each PGI within the process group\n  tag_process_group_instances(process_group_ids)\n  print_process_group_names(process_group_ids)\n}"
+      },
+      "active": true,
+      "position": {
+        "x": 0,
+        "y": 1
+      },
+      "predecessors": []
+    }
+  },
+  "description": "",
+  "actor": "ca05eb33-3574-4bdf-a5b4-87b4e9f77ed6",
+  "owner": "ca05eb33-3574-4bdf-a5b4-87b4e9f77ed6",
+  "ownerType": "USER",
+  "isPrivate": true,
+  "trigger": {
+    "schedule": {
+      "isActive": false,
+      "isFaulty": false,
+      "trigger": {
+        "time": "00:00",
+        "type": "time"
+      },
+      "rule": null,
+      "filterParameters": {
+        "earliestStart": "2024-01-19"
+      },
+      "timezone": "America/Los_Angeles",
+      "inputs": {}
+    }
+  },
+  "schemaVersion": 3,
+  "type": "STANDARD"
+}
