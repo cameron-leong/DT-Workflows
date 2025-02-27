@@ -1,4 +1,4 @@
-The Daily DQL query cost summary Workflow gets the last 24 hours of DQL Query consumption and calculates the total cost based on the bill rate. 
+The ``Daily DQL query cost summary`` Workflow gets the last 24 hours of DQL Query consumption and calculates the total cost based on the bill rate. 
 It also gives a list of the top consuming users, and sends this data as a plaintext email to the specified address(es) in the email task.
 
 Pre-Reqs:
