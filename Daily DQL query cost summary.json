@@ -1,0 +1,95 @@
+{
+  "id": "7149eacb-25b4-424c-86a3-1784c340058a",
+  "title": "Daily DQL query cost summary",
+  "tasks": {
+    "send_email": {
+      "name": "send_email",
+      "input": {
+        "cc": [],
+        "to": [],
+        "bcc": [],
+        "taskId": "{{ task().id }}",
+        "content": "The total query cost for the last 24 hours is ${{ result(\"total_query_cost\").records[0]['Total_Estimated_cost']}}\n\nThe top 10 users by query cost are:\n{% for my_item in result(\"top_10_users\").records %}\n\t${{ my_item['USD'] }} --- {{ my_item['user.email'] }}\n{% endfor %}",
+        "subject": "Log cost daily summary",
+        "executionId": "{{ execution().id }}",
+        "environmentUrl": "{{ environment().url }}"
+      },
+      "action": "dynatrace.email:send-email",
+      "position": {
+        "x": 0,
+        "y": 3
+      },
+      "conditions": {
+        "states": {
+          "top_10_users": "OK"
+        }
+      },
+      "description": "Send email",
+      "predecessors": [
+        "top_10_users"
+      ]
+    },
+    "top_10_users": {
+      "name": "top_10_users",
+      "input": {
+        "query": "fetch dt.system.query_executions, from: now()-24h\n| summarize queryCount = count(),  GiB_Scanned = round(sum(scanned_bytes)/ (1024 * 1024 * 1024),decimals:2), by:user.email\n//| fieldsAdd  DDUConsumed = round((GB_Scanned * 1.70), decimals:2)\n| fieldsAdd  USD = round( (GiB_Scanned) * (.001155), decimals:2)\n| fields USD, user.email\n| sort USD, direction:\"descending\"\n| limit 10"
+      },
+      "action": "dynatrace.automations:execute-dql-query",
+      "position": {
+        "x": 0,
+        "y": 2
+      },
+      "conditions": {
+        "states": {
+          "total_query_cost": "OK"
+        }
+      },
+      "description": "Executes DQL query",
+      "predecessors": [
+        "total_query_cost"
+      ]
+    },
+    "total_query_cost": {
+      "name": "total_query_cost",
+      "input": {
+        "query": "// This workflow sends a daily report of overall query cost and lists the top 10 users\nfetch dt.system.query_executions, from: now()-24h //, scanLimitGBytes: 500, samplingRatio: 1000\n| fieldsAdd Gibibytes = (scanned_bytes)/1073741824\n| summarize Total_Estimated_cost=round(sum(Gibibytes)*(.001155), decimals:2)"
+      },
+      "action": "dynatrace.automations:execute-dql-query",
+      "position": {
+        "x": 0,
+        "y": 1
+      },
+      "conditions": {
+        "states": {}
+      },
+      "description": "Executes DQL query",
+      "predecessors": []
+    }
+  },
+  "description": "",
+  "actor": "ca05eb33-3574-4bdf-a5b4-87b4e9f77ed6",
+  "owner": "a9e13248-cafa-4845-a8ff-dde1a74ac6e2",
+  "ownerType": "USER",
+  "isPrivate": false,
+  "trigger": {
+    "schedule": {
+      "isActive": false,
+      "isFaulty": false,
+      "trigger": {
+        "time": "12:00",
+        "type": "time"
+      },
+      "rule": null,
+      "filterParameters": {
+        "earliestStart": "2024-11-08"
+      },
+      "timezone": "America/Los_Angeles",
+      "inputs": {},
+      "nextExecution": null
+    }
+  },
+  "schemaVersion": 3,
+  "result": null,
+  "input": {},
+  "type": "STANDARD"
+}
