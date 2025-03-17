@@ -1,0 +1,121 @@
+{
+  "id": "cc420d2c-9df1-47e3-b575-8fe2c94e4d5a",
+  "title": "Lambda - Alert:False Tag Missing",
+  "tasks": {
+    "send_email_1": {
+      "name": "send_email_1",
+      "input": {
+        "cc": [
+          "**************************"
+        ],
+        "to": [
+          "**************************"
+        ],
+        "bcc": [],
+        "taskId": "{{ task().id }}",
+        "content": "Lambda Missing Alert:False tag. \n\nLink to Notebook:\n\nhttps://ugt80968.apps.dynatrace.com/ui/document/v0/#share=1c2720c6-ed01-4306-b13e-63811930baa7\n\n\n\n",
+        "subject": "Lambda Missing Alert:False tag",
+        "executionId": "{{ execution().id }}",
+        "environmentUrl": "{{ environment().url }}"
+      },
+      "action": "dynatrace.email:send-email",
+      "position": {
+        "x": -1,
+        "y": 3
+      },
+      "conditions": {
+        "custom": "{{ result(\"run_javascript_1\") }} ",
+        "states": {
+          "run_javascript_1": "OK"
+        }
+      },
+      "description": "Send email",
+      "predecessors": [
+        "run_javascript_1"
+      ]
+    },
+    "run_javascript_1": {
+      "name": "run_javascript_1",
+      "input": {
+        "script": "// optional import of sdk modules\nimport { execution } from '@dynatrace-sdk/automation-utils';\n\n  export default async function ({ executionId }) { \n    \n// load the execution object using the current executionId\n    \n  const ex = await execution(executionId);\n  console.log('Automated script execution on behalf of', ex.trigger);\n\n// get the result from previous task\n  \nvar myResult = await ex.result('execute_dql_query_1');\n    console.log(`The Result of myResult is ${myResult}`);\n\nconst status = myResult.records[0].status;\n    console.log(`The Result of Status is ${status}`);\n\n  if (status === \"ERROR\") {\n\n    return {status}; }\n\n    else {return{}}\n  }\n\n\n\n"
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "position": {
+        "x": 0,
+        "y": 2
+      },
+      "conditions": {
+        "custom": "{{result(\"execute_dql_query_1\")[\"records\"]}}",
+        "states": {
+          "execute_dql_query_1": "OK"
+        }
+      },
+      "description": "Run custom JavaScript code.",
+      "predecessors": [
+        "execute_dql_query_1"
+      ]
+    },
+    "run_javascript_2": {
+      "name": "run_javascript_2",
+      "input": {
+        "script": "// optional import of sdk modules\n\nimport { execution } from '@dynatrace-sdk/automation-utils';\nimport { metricsClient } from '@dynatrace-sdk/client-classic-environment-v2';\n\nexport default async function ({ executionId }) {\n  \n// load the execution object using the current executionId\n  \n  const ex = await execution(executionId);\n  const dqlResult = await ex.result('run_javascript_1');\n  console.log(dqlResult);\n  \n// get status from records of dqlREsult\n  \n  let loglevel = dqlResult.status;\n  console.log(`The value of dql result: ${loglevel}`)\n\n// Set a value of 0 or 50 to variable resultTrigger\n  \n  let resultTrigger;\n\n  if (loglevel === \"ERROR\") {\n    resultTrigger = 50    \n  }\n  else {\n    resultTrigger = 0\n  }\n\n// ingest metric called lambda.tag using metricsClient\n  \nconsole.log(`Going to ingest ${resultTrigger}`); \n  \n  return await metricsClient\n    .ingest({ body:`lambda.tag ${resultTrigger}`})\n    .then((response) => {\n      console.log(response);\n       })\n    .catch((e) => {\n      console.error(e);\n      });\n}"
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "active": true,
+      "position": {
+        "x": 0,
+        "y": 3
+      },
+      "conditions": {
+        "custom": "{{ result(\"run_javascript_1\") }}  ",
+        "states": {
+          "run_javascript_1": "OK"
+        }
+      },
+      "description": "Run custom JavaScript code.",
+      "predecessors": [
+        "run_javascript_1"
+      ]
+    },
+    "execute_dql_query_1": {
+      "name": "execute_dql_query_1",
+      "input": {
+        "query": "fetch logs, from: -30m, to:now()\n| filter in(dt.source_entity, classicEntitySelector(\"type(cloud:aws:lambda)\"))\n    AND loglevel == \"ERROR\"\n    AND in(cloud.account.id, {\"741064324696\", \"040380335822\", \"405182990329\"})\n    AND startsWith(faas.name, \"bde-lambda-function-\")\n| fields faas.id, faas.name, timestamp, status, id, dt.entity.custom_device, cloud.account.id, content, loglevel\n| lookup [\nfetch `dt.entity.cloud:aws:lambda`\n| fieldsAdd tags\n| fields entity.name, id, tags],\n  sourceField: dt.entity.custom_device, \n  lookupField: id, fields:{entity.name, tags}\n| fields timestamp, cloud.account.id, faas.name, content, status, tags\n| filter not contains(toString(tags), \"[AWS]Alert:False\")\n| sort timestamp desc\n"
+      },
+      "action": "dynatrace.automations:execute-dql-query",
+      "position": {
+        "x": 0,
+        "y": 1
+      },
+      "description": "Make use of Dynatrace Grail data in your workflow.",
+      "predecessors": []
+    }
+  },
+  "description": "",
+  "actor": "3d03a6cf-23be-41fa-be60-42b9364dd294",
+  "owner": "a3bbaf51-f666-4382-86b5-b1101e25638e",
+  "ownerType": "USER",
+  "isPrivate": false,
+  "trigger": {
+    "schedule": {
+      "isActive": true,
+      "isFaulty": false,
+      "trigger": {
+        "type": "interval",
+        "intervalMinutes": 30
+      },
+      "rule": null,
+      "filterParameters": {
+        "earliestStart": "2025-02-28",
+        "earliestStartTime": "16:02"
+      },
+      "timezone": "America/New_York",
+      "inputs": {},
+      "nextExecution": "2025-03-17T11:02:00.000Z"
+    }
+  },
+  "schemaVersion": 3,
+  "result": null,
+  "input": {},
+  "type": "STANDARD"
+}
